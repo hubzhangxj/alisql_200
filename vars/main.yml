@@ -1,0 +1,16 @@
+---
+# vars file for mysql
+
+alisql_ins: 3306-3505
+
+root_dir: /root/mysql_test
+
+mysql_dir: /u01
+
+mysql_host: 192.168.1.162
+
+sysbench_table_count: 8
+
+sysbench_table_size: 100000
+
+test_time: 3600

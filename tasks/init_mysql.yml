@@ -1,0 +1,59 @@
+---
+# tasks file for mysql
+
+- name: Modify the root user password
+  mysql_user:
+    login_user: root
+    login_unix_socket: "{{ mysql_dir }}/u{{ item }}/my3306/run/mysql.sock"
+    login_port: "{{ item }}"
+    name: root
+    password: 123456
+    host: "%"
+    priv: '*.*:ALL'
+    state: present
+  with_sequence: start={{ alisql_ins.split('-')[0] }} end={{ alisql_ins.split('-')[-1] }}
+  environment:
+    PATH: "{{ mysql_dir }}/my3306/bin:{{ ansible_env.PATH }}"
+    LD_LIBRARY_PATH: "{{ mysql_dir }}/my3306/lib:{{ ansible_env.LD_LIBRARY_PATH }}"
+
+- name: Create database sysbench
+  mysql_db:
+    login_host: "{{ mysql_host }}"
+    login_password: 123456
+    login_port: "{{ item }}"
+    login_user: root
+    state: present
+    name: sysbench
+  with_sequence: start={{ alisql_ins.split('-')[0] }} end={{ alisql_ins.split('-')[-1] }}
+  environment:
+    PATH: "{{ mysql_dir }}/my3306/bin:{{ ansible_env.PATH }}"
+    LD_LIBRARY_PATH: "{{ mysql_dir }}/my3306/lib:{{ ansible_env.LD_LIBRARY_PATH }}"
+
+- name: Initialize the sysbench data
+  shell: |
+
+    sysbench /usr/local/share/sysbench/tests/include/oltp_legacy/parallel_prepare.lua \
+    --db-driver=mysql \
+    --oltp-test-mode=complex  \
+    --mysql-host={{ mysql_host }} --mysql-db=sysbench \
+    --mysql-password=123456 \
+    --time=7200 --max-requests=0 --mysql-user=root \
+    --mysql-table-engine=innodb --oltp-table-size={{ sysbench_table_size }} \
+    --oltp-tables-count={{ sysbench_table_count }} --rand-type=special --rand-spec-pct=100 \
+    --threads=10 \
+    --mysql-port={{ item }} cleanup
+
+    sysbench /usr/local/share/sysbench/tests/include/oltp_legacy/parallel_prepare.lua \
+    --db-driver=mysql \
+    --oltp-test-mode=complex  \
+    --mysql-host={{ mysql_host }} --mysql-db=sysbench \
+    --mysql-password=123456 \
+    --time=7200 --max-requests=0 --mysql-user=root \
+    --mysql-table-engine=innodb --oltp-table-size={{ sysbench_table_size }} \
+    --oltp-tables-count={{ sysbench_table_count }} --rand-type=special --rand-spec-pct=100 \
+    --threads=10 \
+    --mysql-port={{ item }} prepare
+  with_sequence: start={{ alisql_ins.split('-')[0] }} end={{ alisql_ins.split('-')[-1] }}
+  environment:
+    PATH: "{{ mysql_dir }}/my3306/bin:{{ ansible_env.PATH }}"
+    LD_LIBRARY_PATH: "{{ mysql_dir }}/my3306/lib:{{ ansible_env.LD_LIBRARY_PATH }}"

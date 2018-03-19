@@ -1,0 +1,68 @@
+---
+# tasks file for mysql
+
+- name: Merge the ports lists
+  set_fact:  port_name="{{ item }}"
+  with_sequence: start={{ alisql_ins.split('-')[0] }} end={{ alisql_ins.split('-')[-1] }}
+  register: port_result
+
+- name: construct the test port
+  set_fact:
+    test_port: "{{ port_result.results | map(attribute='ansible_facts.port_name') | list | join(', ') }}"
+
+- name: use the sysbench to test the database 
+  shell: |
+
+    sysbench  /usr/local/share/sysbench/tests/include/oltp_legacy/oltp.lua \
+    --oltp-table-size={{ sysbench_table_size }} \
+    --oltp-tables-count={{ sysbench_table_count }} \
+    --mysql-db=sysbench \
+    --report-interval=0 \
+    --max-requests=0 \
+    --time={{ test_time }} \
+    --mysql-host={{ mysql_host }} \
+    --mysql-port="{{ test_port }}" \
+    --mysql-password=123456 \
+    --mysql-user=root \
+    --mysql-table-engine=innodb \
+    --threads={{ item }}  run
+  with_items:
+    - 200
+    - 400
+    - 800
+  register: alisql_result
+  ignore_errors: yes
+  environment:
+    PATH: "{{ mysql_dir }}/my3306/bin:{{ ansible_env.PATH }}"
+    LD_LIBRARY_PATH: "{{ mysql_dir }}/my3306/lib:{{ ansible_env.LD_LIBRARY_PATH }}"
+
+- name: clear the test result
+  file:
+    path: "/tmp/alisql_{{ item }}thread.log"
+    state: absent
+  with_items: [200, 400, 800]
+
+- name: get the 200 thread test result
+  lineinfile: 
+    create: yes 
+    dest: "/tmp/alisql_200thread.log" 
+    line: "{{ alisql_result.results[0].stdout }}"
+    state: present
+
+- name: get the 400 thread test result
+  lineinfile:
+    create: yes
+    dest: "/tmp/alisql_400thread.log"
+    line: "{{ alisql_result.results[1].stdout }}"
+    state: present
+
+- name: get the 800 thread test result
+  lineinfile:
+    create: yes
+    dest: "/tmp/alisql_800thread.log"
+    line: "{{ alisql_result.results[2].stdout }}"
+    state: present
+
+
+- name: Kill alisql server on ARM64 Server
+  shell: ps -ef | grep mysql | grep -v grep | awk '{print "kill -9 " $2}' | sh & 
